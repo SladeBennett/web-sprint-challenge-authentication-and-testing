@@ -2,7 +2,8 @@ const router = require('express').Router();
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const User = require('./auth-model')
-const { checkUsernameExists, requestBodyCheck } = require('./auth-middleware')
+const { JWT_SECRET } = require('../secrets')
+const { checkUsernameExists, requestBodyCheck, validateCreds } = require('./auth-middleware')
 
 
 router.post('/register', requestBodyCheck, checkUsernameExists, (req, res, next) => {
@@ -32,7 +33,7 @@ router.post('/register', requestBodyCheck, checkUsernameExists, (req, res, next)
         "password": "2a$08$jG.wIGR2S4hxuyWNcBf9MuoC4y0dNy7qC/LbmtuFBSdIhWks2LhpG"
       }
 
-    3- On FAILED registration due to `username` or `password` missing from the request body,
+    $3- On FAILED registration due to `username` or `password` missing from the request body,
       the response body should include a string exactly as follows: "username and password required".
 
     $4- On FAILED registration due to the `username` being taken,
@@ -40,13 +41,13 @@ router.post('/register', requestBodyCheck, checkUsernameExists, (req, res, next)
   */
 });
 
-router.post('/login', (req, res) => {
-  res.end('implement login, please!');
+router.post('/login', requestBodyCheck, validateCreds, (req, res, next) => {
+  res.json(req.user)
   /*
     IMPLEMENT
     You are welcome to build additional middlewares to help with the endpoint's functionality.
 
-    1- In order to log into an existing account the client must provide `username` and `password`:
+    $1- In order to log into an existing account the client must provide `username` and `password`:
       {
         "username": "Captain Marvel",
         "password": "foobar"
@@ -59,12 +60,32 @@ router.post('/login', (req, res) => {
         "token": "eyJhbGciOiJIUzI ... ETC ... vUPjZYDSa46Nwz8"
       }
 
-    3- On FAILED login due to `username` or `password` missing from the request body,
+    $3- On FAILED login due to `username` or `password` missing from the request body,
       the response body should include a string exactly as follows: "username and password required".
 
-    4- On FAILED login due to `username` not existing in the db, or `password` being incorrect,
+    $4- On FAILED login due to `username` not existing in the db, or `password` being incorrect,
       the response body should include a string exactly as follows: "invalid credentials".
   */
+  if (bcrypt.compareSync(req.body.password, req.user.password)) {
+    const token = buildToken(req.user)
+    res.json({
+      message: `welcome, ${req.user.username}`,
+      token,
+    })
+  } else {
+    next({ status: 401, message: 'invalid credentials'})
+  }
 });
+
+function buildToken(user) {
+  const payload = {
+    subject: user.id,
+    username: user.username,
+  }
+  const options = {
+    expiresIn: '1d'
+  }
+  return jwt.sign(payload, JWT_SECRET, options)
+}
 
 module.exports = router;
