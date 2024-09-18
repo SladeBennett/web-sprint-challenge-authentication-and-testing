@@ -36,7 +36,7 @@ router.post('/register', requestBodyCheck, checkUsernameExists, (req, res, next)
   const hash = bcrypt.hashSync(password, 8)
   User.add({ username, password: hash })
     .then(newUser => {
-      res.status(201).json(newUser)
+      res.status(201).json(newUser[0])
     })
     .catch(next)
 });
